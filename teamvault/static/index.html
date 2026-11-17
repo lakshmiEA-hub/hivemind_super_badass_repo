@@ -163,6 +163,7 @@
   <button data-s="2"><i>03</i>Review</button>
   <button data-s="3"><i>04</i>Build</button>
   <button data-s="4"><i>05</i>Ship</button>
+  <button data-s="5"><i>06</i>AI use cases</button>
 </nav>
 <main>
 
@@ -363,6 +364,52 @@
   </div>
   <div class="stepnav">
     <button class="ghost" data-go="3">Back to build</button>
+    <button class="ghost" data-go="5">AI use cases</button>
+  </div>
+</section>
+
+<section class="step" id="s5">
+  <h2>AI use case tracker</h2>
+  <p class="lede">Finds where people actually used an AI tool, rather than where AI
+    was discussed, and assembles one tracker out of all three sources.</p>
+
+  <div class="card">
+    <strong>Sources to scan</strong>
+    <p class="muted">Drive reads the mirror you already have and costs nothing.
+      Slack and Gmail each need a token; see usecase-tooling/README.md.</p>
+    <label><input type="checkbox" class="ucSrc" value="drive" checked> Drive mirror</label>
+    <label><input type="checkbox" class="ucSrc" value="slack" checked> Slack</label>
+    <label><input type="checkbox" class="ucSrc" value="gmail" checked> Gmail</label>
+    <div style="margin-top:.8rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+      <button class="primary" id="btnUcScan">Scan for use cases</button>
+      <span class="muted" id="ucMsg"></span>
+    </div>
+    <pre id="ucLog" class="muted" style="margin-top:.8rem;white-space:pre-wrap"></pre>
+  </div>
+
+  <div class="card">
+    <strong>Who is this tracker for?</strong>
+    <p class="muted">The people who will be able to open the Drive folder. This
+      decides what may be quoted: a Drive document is quoted only if every one of
+      them can already open it.</p>
+    <input type="text" id="ucEmails" style="max-width:520px"
+           placeholder="comma-separated addresses">
+    <div style="margin-top:.8rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+      <button class="primary" id="btnUcBuild">Build the tracker</button>
+      <span class="muted" id="ucBuildMsg"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <strong>What gets shared</strong>
+    <p class="muted">Direct messages, private channels and email are reduced to who,
+      when, which tool and which task. The message itself never leaves this machine.
+      Anything matching the sensitivity list is dropped regardless of access.</p>
+    <div id="ucOut"></div>
+  </div>
+
+  <div class="stepnav">
+    <button class="ghost" data-go="4">Back to ship</button>
   </div>
 </section>
 

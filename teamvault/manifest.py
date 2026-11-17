@@ -69,8 +69,10 @@ def add(man, path, reason="manual", tags=None, source="drive", meta=None):
     doc = {"path": path, "added_by": reason, "tags": tags or [], "source": source,
            "authority": "normal"}
     # provenance travels with the document so the ingestion step can stamp it
-    # into each note's frontmatter without going back to Drive
-    for k in ("modified", "created", "author", "starred", "audience", "version", "genre"):
+    # into each note's frontmatter without going back to Drive. The Drive id
+    # rides along too: without it a later access check has to re-list the whole
+    # drive just to turn a path back into something it can query permissions on.
+    for k in ("id", "modified", "created", "author", "starred", "audience", "version", "genre"):
         if meta and meta.get(k) not in (None, ""):
             doc[k] = meta[k]
     man["documents"].append(doc)

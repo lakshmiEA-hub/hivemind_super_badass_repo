@@ -51,6 +51,7 @@ the rest.
 | `pipeline/` | The Drive mirror. `setup.ps1` authorises, `sync.ps1` runs nightly, converters turn Office and PDF into markdown, `nightly_wiki.ps1` keeps the notes current. |
 | `wiki-tooling/` | Building and maintaining the notes: triage, lint, reindex, duplicate detection, change detection, plus `PIPELINE.md` and `WIKI-CONVENTIONS.md`. |
 | `export-tooling/` | Sharing a slice safely: check what a person can open in Drive file by file, then build a pack containing only notes derived from those documents. |
+| `usecase-tooling/` | The AI use case tracker. Finds where people actually used an AI tool across Drive, Slack and Gmail, and publishes a tracker to a Drive folder. Mail and DMs are reduced to who, when and which tool before anything is shared. |
 | `docs/` | Design, handover and dissemination notes. |
 | `index.html` | The landing page, published by Cloudflare Pages. |
 

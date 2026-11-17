@@ -33,6 +33,8 @@ STATE = {
     "sizes": {},
     "manifest": None,
     "build": {"running": False, "log": [], "done": False, "error": None},
+    "usecases": {"running": False, "log": [], "records": [],
+                 "done": False, "error": None},
 }
 HERE = Path(__file__).resolve().parent
 
@@ -336,6 +338,121 @@ def api_ship(body):
     return {"bundle": zip_path, "notes": notes, "message": msg}
 
 
+def _usecase_tooling():
+    """The AI use case modules, imported late.
+
+    Late on purpose: the Slack and Gmail sources are optional, and a missing
+    token or a half-finished setup should cost the use case screen rather than
+    stopping the whole app from starting.
+    """
+    import sys
+    p = str(HERE.parent / "usecase-tooling")
+    if p not in sys.path:
+        sys.path.insert(0, p)
+    import drive as uc_drive
+    import gmail as uc_gmail
+    import publish as uc_publish
+    import slack as uc_slack
+    return uc_drive, uc_slack, uc_gmail, uc_publish
+
+
+def _usecase_worker(vault, sources):
+    """Run the chosen sources one at a time, logging as it goes.
+
+    Each source is isolated: Slack failing for want of a token must not throw
+    away the Drive results that already succeeded, because the Drive scan is
+    the slow one and nobody wants to repeat it.
+    """
+    uc = STATE["usecases"]
+    log = uc["log"]
+    records = []
+    try:
+        uc_drive, uc_slack, uc_gmail, _ = _usecase_tooling()
+        runners = [
+            ("drive", lambda: uc_drive.enrich_from_manifest(
+                uc_drive.collect(vault, verbose=False), vault)),
+            ("slack", lambda: uc_slack.collect(
+                uc_slack.token_from_env(), verbose=False)),
+            ("gmail", lambda: uc_gmail.collect(
+                uc_gmail.access_token(), verbose=False)),
+        ]
+        for name, run in runners:
+            if name not in sources:
+                continue
+            log.append(f"scanning {name}")
+            try:
+                found = run()
+                records.extend(found)
+                log.append(f"  {name}: {len(found)} use cases")
+            except Exception as e:
+                # the message carries the fix (missing scope, missing token),
+                # so it is worth surfacing whole rather than as 'failed'
+                log.append(f"  {name} skipped: {e}")
+        uc["records"] = records
+        uc["done"] = True
+        log.append(f"{len(records)} use cases in total")
+    except Exception as e:
+        uc["error"] = str(e)
+        log.append("ERROR: " + str(e))
+    finally:
+        uc["running"] = False
+
+
+def api_usecase_scan(body):
+    if STATE["usecases"]["running"]:
+        return {"ok": False, "error": "a scan is already running"}
+    sources = body.get("sources") or ["drive"]
+    STATE["usecases"] = {"running": True, "log": [], "records": [],
+                         "done": False, "error": None}
+    threading.Thread(target=_usecase_worker,
+                     args=(STATE["vault"], sources), daemon=True).start()
+    return {"ok": True, "sources": sources}
+
+
+def api_usecase_status(_):
+    uc = STATE["usecases"]
+    by_source = {}
+    for r in uc["records"]:
+        by_source[r.get("source", "?")] = by_source.get(r.get("source", "?"), 0) + 1
+    return {"running": uc["running"], "done": uc["done"], "error": uc["error"],
+            "log": uc["log"], "count": len(uc["records"]), "by_source": by_source,
+            "sample": [{"person": r.get("person", ""), "source": r.get("source", ""),
+                        "visibility": r.get("visibility", ""),
+                        "tools": r.get("tools", []), "date": r.get("date", ""),
+                        "evidence": r.get("evidence", "")[:140]}
+                       for r in uc["records"][:40]]}
+
+
+def api_usecase_build(body):
+    """Apply the gate and write the tracker locally. Never uploads.
+
+    Uploading is deliberately not reachable from the browser. It shares other
+    people's material with named colleagues, so it belongs at a command line
+    where the recipients have to be typed out in full and read back.
+    """
+    _, _, _, uc_publish = _usecase_tooling()
+    records = STATE["usecases"]["records"]
+    if not records:
+        return {"ok": False, "error": "Nothing scanned yet."}
+    emails = [e.strip() for e in body.get("emails", []) if e.strip()]
+    token = None
+    if any(r.get("source") == "drive" for r in records) and emails:
+        try:
+            token = core.access_token(resolve_remote())
+        except Exception:
+            token = None          # unverifiable, so the gate reduces instead
+    entries, dropped = uc_publish.gate(records, emails, token=token, verbose=False)
+    out = Path(STATE["vault"]) / "ai-use-case-tracker"
+    uc_publish.build(entries, dropped, out)
+    quoted = sum(1 for e in entries if e.get("quoted"))
+    return {"ok": True, "path": str(out), "entries": len(entries),
+            "quoted": quoted, "reduced": len(entries) - quoted,
+            "blocked": len(dropped),
+            "publish_command":
+                'python publish.py --vault "{}" --share-with "{}" --upload'.format(
+                    STATE["vault"], ",".join(emails))}
+
+
 def api_authority(body):
     """Mark documents authoritative, normal, or superseded."""
     m = STATE["manifest"]
@@ -433,6 +550,9 @@ ROUTES = {
     "/api/scan": api_scan, "/api/add": api_add, "/api/remove": api_remove,
     "/api/review": api_review, "/api/build": api_build,
     "/api/build/status": api_build_status, "/api/ship": api_ship,
+    "/api/usecases/scan": api_usecase_scan,
+    "/api/usecases/status": api_usecase_status,
+    "/api/usecases/build": api_usecase_build,
 }
 
 
