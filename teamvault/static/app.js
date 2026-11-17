@@ -416,4 +416,47 @@ $("#btnShip").addEventListener("click", async () => {
   } catch (e) { $("#shipOut").textContent = "failed: " + e.message; }
 });
 
+// ---- AI use case tracker
+function ucSources() {
+  return [...document.querySelectorAll(".ucSrc:checked")].map((c) => c.value);
+}
+
+$("#btnUcScan").addEventListener("click", async () => {
+  const sources = ucSources();
+  if (!sources.length) { $("#ucMsg").textContent = "pick at least one source"; return; }
+  $("#ucMsg").textContent = "starting…";
+  try {
+    await api("/api/usecases/scan", { sources });
+    ucPoll();
+  } catch (e) { $("#ucMsg").textContent = e.message; }
+});
+
+async function ucPoll() {
+  const s = await api("/api/usecases/status");
+  $("#ucLog").textContent = (s.log || []).join("\n") || "…";
+  $("#ucMsg").textContent = s.running
+    ? "scanning" : (s.error ? "failed" : (s.done ? `${s.count} use cases found` : ""));
+  if (s.running) setTimeout(ucPoll, 1500);
+}
+
+$("#btnUcBuild").addEventListener("click", async () => {
+  const emails = ($("#ucEmails").value || "").split(",").map((e) => e.trim()).filter(Boolean);
+  $("#ucBuildMsg").textContent = "building…";
+  try {
+    const r = await api("/api/usecases/build", { emails });
+    $("#ucBuildMsg").textContent = "done";
+    // the counts are the point: they say how much of the tracker is quotable
+    // and how much was held back, before anything is shared with anyone
+    $("#ucOut").innerHTML = `<div class="ok"><strong>${r.entries} entries</strong>
+      <div class="muted" style="margin-top:.3rem">
+        ${r.quoted} quoted in full, ${r.reduced} reduced to metadata,
+        ${r.blocked} blocked by the sensitivity list.</div>
+      <div class="muted" style="margin-top:.3rem">${esc(r.path)}</div></div>
+      <p class="muted" style="margin-top:.7rem">Read it, then publish from a terminal:</p>
+      <pre style="margin-top:.3rem">${esc(r.publish_command)}</pre>`;
+  } catch (e) {
+    $("#ucBuildMsg").textContent = "failed: " + e.message;
+  }
+});
+
 refreshState().then(() => Promise.all([loadAuthors(), loadAccount()]));

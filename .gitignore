@@ -19,3 +19,16 @@ pack/
 *-manifest.txt
 *.idindex.json
 mail/
+
+# credentials for the Slack and Gmail sources. These are live secrets: a
+# committed user token reads the mailbox or the workspace until it is revoked.
+usecase-tooling/slack-token.txt
+usecase-tooling/gmail-client.json
+usecase-tooling/gmail-token.json
+
+# use case records and the assembled tracker. Derived from real people's
+# messages, so they belong in a vault, never in the tooling repo.
+usecases.json
+slack-usecases.json
+gmail-usecases.json
+ai-use-case-tracker/
